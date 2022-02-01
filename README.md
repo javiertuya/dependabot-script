@@ -2,6 +2,11 @@
 
 To use in a on-premise Gitlab+Jenkins platform
 
+## Added features
+
+- Environment variable: `IGNORE`, Default: N/A, Notes:
+  Comma separated list of dependencies that will be ignored. Example: `IGNORE="junit:junit,org.apache.httpcomponents:httpclient"`
+
 ## Issues and solutions
 
 - Jenkins may fail to clone the dependabot PR branch because  encodes the slash charcter when getting the branch name:

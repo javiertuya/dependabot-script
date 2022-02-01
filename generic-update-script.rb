@@ -142,6 +142,16 @@ else
   )
 end
 
+#######################################################################
+# Comma separated list of dependencies that are ignored. For example: #
+# IGNORE="junit:junit,org.apache.httpcomponents:httpclient"           #
+#######################################################################
+ignore_dependencies = []
+unless ENV["IGNORE"].to_s.strip.empty?
+  ignore_dependencies = ENV["IGNORE"].split(',')
+  puts "Dependencies to ignore: #{ignore_dependencies}"
+end
+
 ##############################
 # Fetch the dependency files #
 ##############################
@@ -177,6 +187,13 @@ dependencies.select(&:top_level?).each do |dep|
   )
 
   next if checker.up_to_date?
+
+  #ignore this dependency if was included in the IGNORE environment variable
+  if ignore_dependencies.include?(dep.name)
+    print "  - Ignoring #{dep.name} (from #{dep.version})…"
+    puts " excluded by environment variable"
+    next
+  end
 
   requirements_to_unlock =
     if !checker.requirements_unlocked_or_can_be?
