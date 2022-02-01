@@ -1,3 +1,22 @@
+# Dependabot Update Script - Notes & customizations on this fork
+
+To use in a on-premise Gitlab+Jenkins platform
+
+## Issues and solutions
+
+- Jenkins may fail to clone the dependabot PR branch because  encodes the slash charcter when getting the branch name:
+  - Get the branch name: `def branch=${env.BRANCH_NAME}`
+  - Decode the slash: `branch=branch.replaceAll('%2F','/')`
+  - Use the new value as the branch name in the git scm command: `git branch: "${branch}", ...`
+- Gitlab may fail to get the dependency files when they are not in the root folder (e.g. pom.xml in multimodule maven projects, or the .csproj files in .NET projects)
+  - The gitlab repository files API requires URL encoded filenames, dependabot does.
+  - But if gitlab is behind a proxy, these filenames may be decoded and passed to the API, which casue the failure.
+  - See discussions (apache and nginx):
+    https://gitlab.com/gitlab-org/gitlab-foss/-/issues/35079#note_76374269
+    https://stackoverflow.com/questions/28684300/nginx-pass-proxy-subdirectory-without-url-decoding/37584637#37584637
+  - Example Nginx configuration that fails: `location /myroot/ { proxy_pass http://127.0.0.1:<port>/myroot/; }`
+  - Example Nginx configuration that works: `location /myroot/ { proxy_pass http://127.0.0.1:<port>; }`
+
 # Dependabot Update Script [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&identifier=131328855)](https://dependabot.com)
 
 This repo contains two scripts that demonstrates
