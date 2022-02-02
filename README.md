@@ -6,6 +6,8 @@ To use in a on-premise Gitlab+Jenkins platform
 
 - Environment variable: `IGNORE`, Default: N/A, Notes:
   Comma separated list of dependencies that will be ignored. Example: `IGNORE="junit:junit,org.apache.httpcomponents:httpclient"`
+- Environment variable: `DRY_RUN`, Default: N/A, Notes:
+  If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
 
 ## Issues and solutions
 

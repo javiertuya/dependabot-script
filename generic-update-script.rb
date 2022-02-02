@@ -153,6 +153,12 @@ unless ENV["IGNORE"].to_s.strip.empty?
 end
 
 ##############################
+# DRY_RUN will not create PR #
+##############################
+dry_run = !ENV["DRY_RUN"].to_s.strip.empty? && ENV["DRY_RUN"]=="true"
+puts "Dry run configuration: #{dry_run}"
+
+##############################
 # Fetch the dependency files #
 ##############################
 puts "Fetching #{package_manager} dependency files for #{repo_name}"
@@ -191,7 +197,14 @@ dependencies.select(&:top_level?).each do |dep|
   #ignore this dependency if was included in the IGNORE environment variable
   if ignore_dependencies.include?(dep.name)
     print "  - Ignoring #{dep.name} (from #{dep.version})…"
-    puts " excluded by environment variable"
+    puts " excluded by IGNORE environment variable"
+    next
+  end
+
+  # skip PR submission if dry_run
+  if dry_run
+    print "  - Updating #{dep.name} (from #{dep.version})…"
+    puts " not submitted by DRY_RUN environment variable"
     next
   end
 
