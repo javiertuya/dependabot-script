@@ -197,14 +197,7 @@ dependencies.select(&:top_level?).each do |dep|
   #ignore this dependency if was included in the IGNORE environment variable
   if ignore_dependencies.include?(dep.name)
     print "  - Ignoring #{dep.name} (from #{dep.version})…"
-    puts " excluded by IGNORE environment variable"
-    next
-  end
-
-  # skip PR submission if dry_run
-  if dry_run
-    print "  - Updating #{dep.name} (from #{dep.version})…"
-    puts " not submitted by DRY_RUN environment variable"
+    puts " excluded as set by IGNORE environment variable"
     next
   end
 
@@ -235,6 +228,13 @@ dependencies.select(&:top_level?).each do |dep|
   )
 
   updated_files = updater.updated_dependency_files
+  print "(to #{updater.dependencies[0].version})"
+  
+  # skip PR submission if dry_run
+  if dry_run
+    puts " not submitted as set by DRY_RUN environment variable"
+    next
+  end
 
   ########################################
   # Create a pull request for the update #
