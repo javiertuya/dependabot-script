@@ -5,7 +5,13 @@ To use in a on-premise Gitlab+Jenkins platform
 ## Added features
 
 - Environment variable: `IGNORE`, Default: N/A, Notes:
-  Comma separated list of dependencies that will be ignored. Example: `IGNORE="junit:junit,org.apache.httpcomponents:httpclient"`
+  Comma separated list of dependencies to ignore.
+  <br/>Example: `IGNORE="junit:junit,org.apache.httpcomponents:httpclient"`
+- Environment variable: `IGNORE_VERSIONS`, Default: N/A, Notes:
+  Comma separated list of version specifications to ignore. 
+  <br/>Each version specification is in the form `dependency?version-1+version-2+...`
+  <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5, Microsoft.Data.SQLite?5.*.*+6.*.*"`
+  <br/>Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
 - Environment variable: `DRY_RUN`, Default: N/A, Notes:
   If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
 

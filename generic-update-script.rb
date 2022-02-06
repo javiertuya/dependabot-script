@@ -143,13 +143,35 @@ else
 end
 
 #######################################################################
-# Comma separated list of dependencies that are ignored. For example: #
+# Comma separated list of dependencies to ignore.                     #
 # IGNORE="junit:junit,org.apache.httpcomponents:httpclient"           #
 #######################################################################
 ignore_dependencies = []
 unless ENV["IGNORE"].to_s.strip.empty?
   ignore_dependencies = ENV["IGNORE"].split(',')
   puts "Dependencies to ignore: #{ignore_dependencies}"
+end
+
+###################################################################################################
+# Comma separated list of dependencies ov version specifications to ignore.                       #
+# Each version specification is in the form `dependency?version-1|version-2|...`                  #
+# Example:                                                                                        #
+# IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5, Microsoft.Data.SQLite?5.*.*+6.*.*"   #
+###################################################################################################
+
+def ignored_versions_for(dep)
+  ignore_versions = []
+  unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
+    ignore_versions = ENV["IGNORE_VERSIONS"].split(',')
+    ignore_versions.each do |dep_and_version|
+      dep_and_version_array=dep_and_version.strip.split('?')
+      if dep_and_version_array[0].strip==dep.name
+        puts "  With ignored versions: #{dep_and_version}"
+        return dep_and_version_array[1].strip.split('+')
+      end
+    end
+  end
+  return []
 end
 
 ##############################
@@ -183,14 +205,17 @@ parser = Dependabot::FileParsers.for_package_manager(package_manager).new(
 dependencies = parser.parse
 
 dependencies.select(&:top_level?).each do |dep|
+  puts "Check dependency: #{dep.name} (#{dep.version})"
+
   #########################################
   # Get update details for the dependency #
   #########################################
-  checker = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
-    dependency: dep,
-    dependency_files: files,
-    credentials: credentials,
-  )
+    checker = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
+      dependency: dep,
+      dependency_files: files,
+      credentials: credentials,
+      ignored_versions: ignored_versions_for(dep),
+    )
 
   next if checker.up_to_date?
 
@@ -229,7 +254,7 @@ dependencies.select(&:top_level?).each do |dep|
 
   updated_files = updater.updated_dependency_files
   print "(to #{updater.dependencies[0].version})"
-  
+
   # skip PR submission if dry_run
   if dry_run
     puts " not submitted as set by DRY_RUN environment variable"
