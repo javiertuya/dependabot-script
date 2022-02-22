@@ -2,7 +2,7 @@ FROM dependabot/dependabot-core:0.142.0
 
 ARG CODE_DIR=/home/dependabot/dependabot-script
 RUN mkdir -p ${CODE_DIR}
-COPY --chown=dependabot:dependabot Gemfile Gemfile.lock ${CODE_DIR}/
+COPY --chown=dependabot:dependabot Gemfile Gemfile.lock vulnerability_fetcher.rb ${CODE_DIR}/
 WORKDIR ${CODE_DIR}
 
 RUN bundle config set --local path "vendor" \

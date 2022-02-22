@@ -14,10 +14,12 @@ To use in a on-premise Gitlab+Jenkins platform
   <br/>Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
 - Environment variable: `DRY_RUN`, Default: N/A, Notes:
   If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
+- Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 
+  Note: The label must have been previously created in GitLab (at the project or group level)
 
 ## Issues and solutions
 
-- Jenkins may fail to clone the dependabot PR branch because  encodes the slash charcter when getting the branch name:
+- Jenkins may fail to clone the dependabot PR branch because encodes the slash character when getting the branch name:
   - Get the branch name: `def branch=${env.BRANCH_NAME}`
   - Decode the slash: `branch=branch.replaceAll('%2F','/')`
   - Use the new value as the branch name in the git scm command: `git branch: "${branch}", ...`
