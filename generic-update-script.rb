@@ -149,7 +149,7 @@ end
 #######################################################################
 ignore_dependencies = []
 unless ENV["IGNORE"].to_s.strip.empty?
-  ignore_dependencies = ENV["IGNORE"].split(',')
+  ignore_dependencies = ENV["IGNORE"].split(';')
   puts "Dependencies to ignore: #{ignore_dependencies}"
 end
 
@@ -163,7 +163,7 @@ end
 def ignored_versions_for(dep)
   ignore_versions = []
   unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
-    ignore_versions = ENV["IGNORE_VERSIONS"].split(',')
+    ignore_versions = ENV["IGNORE_VERSIONS"].split(';')
     ignore_versions.each do |dep_and_version|
       dep_and_version_array=dep_and_version.strip.split('?')
       if dep_and_version_array[0].strip==dep.name

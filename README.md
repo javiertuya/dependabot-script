@@ -5,13 +5,15 @@ To use in a on-premise Gitlab+Jenkins platform
 ## Added features
 
 - Environment variable: `IGNORE`, Default: N/A, Notes:
-  Comma separated list of dependencies to ignore.
+  Semicolon separated list of dependencies to ignore.
   <br/>Example: `IGNORE="junit:junit,org.apache.httpcomponents:httpclient"`
 - Environment variable: `IGNORE_VERSIONS`, Default: N/A, Notes:
-  Comma separated list of version specifications to ignore. 
-  <br/>Each version specification is in the form `dependency?version-1+version-2+...`
-  <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5, Microsoft.Data.SQLite?5.*.*+6.*.*"`
-  <br/>Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
+  Semicolon separated list of ignore specifications (one per dependency). 
+  <br/>Each ignore specification is in the form `dependency?version`, 
+  <br/>Multiple versions can be specified for a dependency using `+`
+  <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5; Microsoft.Data.SQLite?5.*.*+6.*.*"`
+  Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
+  <br/>A range can be used, eg. to ignore only versions between 14.6 and 14.7: `IGNORE_VERSIONS="gitlab/gitlab-ce?>=14.6,<14.8`
 - Environment variable: `DRY_RUN`, Default: N/A, Notes:
   If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
 - Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 
