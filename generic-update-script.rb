@@ -163,7 +163,7 @@ end
 def ignored_versions_for(dep)
   ignore_versions = []
   unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
-    ignore_versions = ENV["IGNORE_VERSIONS"].split(';')
+    ignore_versions = ENV["IGNORE_VERSIONS"].strip.split(';')
     ignore_versions.each do |dep_and_version|
       dep_and_version_array=dep_and_version.strip.split('?')
       if dep_and_version_array[0].strip==dep.name
@@ -248,11 +248,12 @@ dependencies.select(&:top_level?).each do |dep|
   #########################################
   # Get update details for the dependency #
   #########################################
+  ignored_versions = ignored_versions_for(dep)
   checker = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
     dependency: dep,
     dependency_files: files,
     credentials: credentials,
-    ignored_versions: ignored_versions_for(dep),
+    ignored_versions: ignored_versions,
   )
 
   next if checker.up_to_date?
@@ -262,22 +263,25 @@ dependencies.select(&:top_level?).each do |dep|
   # Uses a different checker the security_advisories parameter #
   # to let dependabot determine if there is any vulnerability  #
   ##############################################################
-  checker_vuln = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
-    dependency: dep,
-    dependency_files: files,
-    credentials: credentials,
-    ignored_versions: ignored_versions_for(dep),
-    security_advisories: security_vulnerabilities_for(dep, package_manager),
-  )
-  #puts "  Checker.security_advisories #{checker_vuln.security_advisories}"
-  #puts "  checker vulnerable? #{checker_vuln.vulnerable?}"
-  #puts "  checker.lowest_resolvable_security_fix_version #{checker_vuln.lowest_resolvable_security_fix_version}"
-  #puts "  checker.latest_version #{checker_vuln.latest_version}"
-  #puts "  checker.lowest_security_fix_version #{checker_vuln.lowest_security_fix_version}"
-  package_is_vulnerable = checker_vuln.vulnerable?
-  if package_is_vulnerable
-    puts "  Dependency #{dep.name} is vulnerable"
-  end 
+  package_is_vulnerable=false
+  if package_manager!="docker" #docker does not report vulnerabilities
+    checker_vuln = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
+      dependency: dep,
+      dependency_files: files,
+      credentials: credentials,
+      ignored_versions: ignored_versions,
+      security_advisories: security_vulnerabilities_for(dep, package_manager),
+      )
+    #puts "  Checker.security_advisories #{checker_vuln.security_advisories}"
+    #puts "  checker vulnerable? #{checker_vuln.vulnerable?}"
+    #puts "  checker.lowest_resolvable_security_fix_version #{checker_vuln.lowest_resolvable_security_fix_version}"
+    #puts "  checker.latest_version #{checker_vuln.latest_version}"
+    #puts "  checker.lowest_security_fix_version #{checker_vuln.lowest_security_fix_version}"
+    if checker_vuln.vulnerable?
+      package_is_vulnerable = true
+      puts "  Dependency #{dep.name} is vulnerable"
+    end 
+  end
 
   #ignore this dependency if was included in the IGNORE environment variable
   if ignore_dependencies.include?(dep.name)

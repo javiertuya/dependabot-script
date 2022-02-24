@@ -1,6 +1,6 @@
 # Dependabot Update Script - Notes & customizations on this fork
 
-To use in a on-premise Gitlab+Jenkins platform
+To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and docker ecosystems
 
 ## Added features
 
