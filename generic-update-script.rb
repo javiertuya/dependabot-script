@@ -167,7 +167,6 @@ def ignored_versions_for(dep)
     ignore_versions.each do |dep_and_version|
       dep_and_version_array=dep_and_version.strip.split('?')
       if dep_and_version_array[0].strip==dep.name
-        puts "  With ignored versions: #{dep_and_version}"
         return dep_and_version_array[1].strip.split('+')
       end
     end
@@ -183,7 +182,9 @@ end
 
 def security_vulnerabilities_for(dep, package_manager)
   vulnerabilities = VulnerabilityFetcher.new([dep.name], package_manager).fetch_advisories
-  puts "  Vulnerability info: #{vulnerabilities.to_json}"
+  if vulnerabilities[:package].length()>0
+    puts "  Vulnerability info: #{vulnerabilities.to_json}"
+  end
   security_vulnerabilities = []
   if vulnerabilities.any?
     security_vulnerabilities = vulnerabilities[:package].map do |vuln|
@@ -243,7 +244,7 @@ dependencies = parser.parse
 
 dependencies.select(&:top_level?).each do |dep|
   next if dep.name=="org.eclipse.m2e:lifecycle-mapping" #skip as this is not a true dependency
-  puts "Check dependency: #{dep.name} (#{dep.version})"
+  print "Check dependency: #{dep.name} (#{dep.version})"
 
   #########################################
   # Get update details for the dependency #
@@ -255,6 +256,7 @@ dependencies.select(&:top_level?).each do |dep|
     credentials: credentials,
     ignored_versions: ignored_versions,
   )
+  puts ignored_versions.length()==0 ? "" : " - With ignored versions: #{ignored_versions}"
 
   next if checker.up_to_date?
 
@@ -279,7 +281,6 @@ dependencies.select(&:top_level?).each do |dep|
     #puts "  checker.lowest_security_fix_version #{checker_vuln.lowest_security_fix_version}"
     if checker_vuln.vulnerable?
       package_is_vulnerable = true
-      puts "  Dependency #{dep.name} is vulnerable"
     end 
   end
 
@@ -318,6 +319,9 @@ dependencies.select(&:top_level?).each do |dep|
 
   updated_files = updater.updated_dependency_files
   print "(to #{updater.dependencies[0].version})"
+  if package_is_vulnerable
+    print " [SECURITY-UPDATE]"
+  end
 
   # skip PR submission if dry_run
   if dry_run
