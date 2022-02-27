@@ -14,6 +14,8 @@ To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and doc
   <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5; Microsoft.Data.SQLite?5.*.*+6.*.*"`
   Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
   <br/>A range can be used, eg. to ignore only versions between 14.6 and 14.7: `IGNORE_VERSIONS="gitlab/gitlab-ce?>=14.6,<14.8`
+- Dependency names specified in `IGNORE` or `IGNORE_VERSIONS` can specify an approximate match when ended by `*`.
+  Example: `org.junit*` matches all artifacts with a name that begins with `org.junit`
 - Environment variable: `DRY_RUN`, Default: N/A, Notes:
   If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
 - Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 

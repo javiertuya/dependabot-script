@@ -143,32 +143,43 @@ else
   )
 end
 
+#returns true if the specified dependency matches a dependency name
+#(specified dependency use * at the end for approximate matches)
+def match_dependency_name?(dep_as_specified, dep_name)
+  if dep_as_specified.end_with?("*") #approximate match
+    return dep_name.start_with?(dep_as_specified[0..-2]) #remove last
+  else
+    return dep_as_specified == dep_name
+  end
+end
+
 #######################################################################
-# Comma separated list of dependencies to ignore.                     #
-# IGNORE="junit:junit,org.apache.httpcomponents:httpclient"           #
+# Semicolon separated list of dependencies to ignore.                 #
+# IGNORE="junit:junit; org.apache.httpcomponents:httpclient"          #
 #######################################################################
-ignore_dependencies = []
-unless ENV["IGNORE"].to_s.strip.empty?
-  ignore_dependencies = ENV["IGNORE"].split(';')
-  puts "Dependencies to ignore: #{ignore_dependencies}"
+def ignore_dependencies_for(dep)
+  unless ENV["IGNORE"].to_s.strip.empty?
+    ignore_dependencies = ENV["IGNORE"].strip.split(';')
+    ignore_dependencies.each do |dep_to_ignore|
+      return true if match_dependency_name?(dep_to_ignore.strip, dep.name)
+    end
+  end
+  return false   
 end
 
 ###################################################################################################
-# Comma separated list of dependencies ov version specifications to ignore.                       #
+# Semicolon separated list of dependencies ov version specifications to ignore.                   #
 # Each version specification is in the form `dependency?version-1|version-2|...`                  #
 # Example:                                                                                        #
-# IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5, Microsoft.Data.SQLite?5.*.*+6.*.*"   #
+# IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5: Microsoft.Data.SQLite?5.*.*+6.*.*"   #
 ###################################################################################################
 
 def ignored_versions_for(dep)
-  ignore_versions = []
   unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
     ignore_versions = ENV["IGNORE_VERSIONS"].strip.split(';')
     ignore_versions.each do |dep_and_version|
       dep_and_version_array=dep_and_version.strip.split('?')
-      if dep_and_version_array[0].strip==dep.name
-        return dep_and_version_array[1].strip.split('+')
-      end
+      return dep_and_version_array[1].strip.split('+') if match_dependency_name?(dep_and_version_array[0].strip, dep.name)
     end
   end
   return []
@@ -285,7 +296,7 @@ dependencies.select(&:top_level?).each do |dep|
   end
 
   #ignore this dependency if was included in the IGNORE environment variable
-  if ignore_dependencies.include?(dep.name)
+  if ignore_dependencies_for(dep)
     print "  - Ignoring #{dep.name} (from #{dep.version})…"
     puts " excluded as set by IGNORE environment variable"
     next
