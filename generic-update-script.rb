@@ -358,6 +358,7 @@ dependencies.select(&:top_level?).each do |dep|
     author_details: { name: "Dependabot", email: "no-reply@github.com" },
     label_language: true,
     custom_labels: custom_labels,
+    commit_message_options: { prefix: (package_is_vulnerable ? "[SECURITY-UPDATE]" : nil) }
   )
   pull_request = pr_creator.create
   puts " submitted"
