@@ -8,7 +8,7 @@ require "dependabot/file_updaters"
 require "dependabot/pull_request_creator"
 require "dependabot/omnibus"
 require "gitlab"
-require_relative "vulnerability_fetcher"
+require_relative "custom/custom_util"
 
 credentials = [
   {
@@ -143,92 +143,6 @@ else
   )
 end
 
-#returns true if the specified dependency matches a dependency name
-#(specified dependency use * at the end for approximate matches)
-def match_dependency_name?(dep_as_specified, dep_name)
-  if dep_as_specified.end_with?("*") #approximate match
-    return dep_name.start_with?(dep_as_specified[0..-2]) #remove last
-  else
-    return dep_as_specified == dep_name
-  end
-end
-
-#######################################################################
-# Semicolon separated list of dependencies to ignore.                 #
-# IGNORE="junit:junit; org.apache.httpcomponents:httpclient"          #
-#######################################################################
-def ignore_dependencies_for(dep)
-  unless ENV["IGNORE"].to_s.strip.empty?
-    ignore_dependencies = ENV["IGNORE"].strip.split(';')
-    ignore_dependencies.each do |dep_to_ignore|
-      return true if match_dependency_name?(dep_to_ignore.strip, dep.name)
-    end
-  end
-  return false   
-end
-
-###################################################################################################
-# Semicolon separated list of dependencies ov version specifications to ignore.                   #
-# Each version specification is in the form `dependency?version-1|version-2|...`                  #
-# Example:                                                                                        #
-# IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5: Microsoft.Data.SQLite?5.*.*+6.*.*"   #
-###################################################################################################
-
-def ignored_versions_for(dep)
-  unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
-    ignore_versions = ENV["IGNORE_VERSIONS"].strip.split(';')
-    ignore_versions.each do |dep_and_version|
-      dep_and_version_array=dep_and_version.strip.split('?')
-      return dep_and_version_array[1].strip.split('+') if match_dependency_name?(dep_and_version_array[0].strip, dep.name)
-    end
-  end
-  return []
-end
-
-###########################################################################################################
-# Gets the known vulnerabilities of a dependency in the required format to be passed to an update checker #
-# Based on https://gist.github.com/BobbyMcWho/3ce09bde5abb674e61092efbe7390ffb with some adaptations      #
-# Tested with maven and nuget only                                                                        #
-###########################################################################################################
-
-def security_vulnerabilities_for(dep, package_manager)
-  vulnerabilities = VulnerabilityFetcher.new([dep.name], package_manager).fetch_advisories
-  if vulnerabilities[:package].length()>0
-    puts "  Vulnerability info: #{vulnerabilities.to_json}"
-  end
-  security_vulnerabilities = []
-  if vulnerabilities.any?
-    security_vulnerabilities = vulnerabilities[:package].map do |vuln|
-      Dependabot::SecurityAdvisory.new(
-        dependency_name: dep.name,
-        package_manager: package_manager,
-        #When exist both lower and upper limit, it was unable to get the correct behaviour. Keeps only last (upper) if more than one
-        #Examples: org.apache.logging.log4j:log4j-core and com.google.guava:guava report vulnerability when there is not
-        vulnerable_versions: [vuln[:vulnerable_versions][vuln[:vulnerable_versions].length()-1]],
-        safe_versions: vuln[:patched_versions]
-      )
-    end
-  end
-  return security_vulnerabilities
-end
-
-def language_label_for(package_manager)
-  if package_manager == "maven"
-    return "java"
-  elsif package_manager == "nuget"
-    return ".NET"
-  else
-    return package_manager
-  end
-end
-
-
-##############################
-# DRY_RUN will not create PR #
-##############################
-dry_run = !ENV["DRY_RUN"].to_s.strip.empty? && ENV["DRY_RUN"]=="true"
-puts "Dry run configuration: #{dry_run}"
-
 ##############################
 # Fetch the dependency files #
 ##############################
@@ -253,55 +167,35 @@ parser = Dependabot::FileParsers.for_package_manager(package_manager).new(
 
 dependencies = parser.parse
 
-dependencies.select(&:top_level?).each do |dep|
-  next if dep.name=="org.eclipse.m2e:lifecycle-mapping" #skip as this is not a true dependency
-  print "Check dependency: #{dep.name} (#{dep.version})"
+custom_util = CustomUtil.new
 
+dependencies.select(&:top_level?).each do |dep|
   #########################################
   # Get update details for the dependency #
   #########################################
-  ignored_versions = ignored_versions_for(dep)
+  ignored_versions = custom_util.ignored_versions_for(dep)
   checker = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
     dependency: dep,
     dependency_files: files,
     credentials: credentials,
     ignored_versions: ignored_versions,
   )
+
+  print "Check dependency: #{dep.name} (#{dep.version})"
   puts ignored_versions.length()==0 ? "" : " - With ignored versions: #{ignored_versions}"
 
   next if checker.up_to_date?
 
-  ##############################################################
-  # Determines if package to be update has vulnerabilities     #                                                              
-  # Uses a different checker the security_advisories parameter #
-  # to let dependabot determine if there is any vulnerability  #
-  ##############################################################
-  package_is_vulnerable=false
-  if package_manager!="docker" #docker does not report vulnerabilities
-    checker_vuln = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
-      dependency: dep,
-      dependency_files: files,
-      credentials: credentials,
-      ignored_versions: ignored_versions,
-      security_advisories: security_vulnerabilities_for(dep, package_manager),
-      )
-    #puts "  Checker.security_advisories #{checker_vuln.security_advisories}"
-    #puts "  checker vulnerable? #{checker_vuln.vulnerable?}"
-    #puts "  checker.lowest_resolvable_security_fix_version #{checker_vuln.lowest_resolvable_security_fix_version}"
-    #puts "  checker.latest_version #{checker_vuln.latest_version}"
-    #puts "  checker.lowest_security_fix_version #{checker_vuln.lowest_security_fix_version}"
-    if checker_vuln.vulnerable?
-      package_is_vulnerable = true
-    end 
-  end
-
   #ignore this dependency if was included in the IGNORE environment variable
-  if ignore_dependencies_for(dep)
+  if custom_util.ignore_dependencies_for(dep)
     print "  - Ignoring #{dep.name} (from #{dep.version})…"
     puts " excluded as set by IGNORE environment variable"
     next
   end
 
+  #check if package is vulnerable to set the appropriate labels in the PR
+  package_is_vulnerable = custom_util.package_is_vulnerable?(package_manager, dep, files, credentials, ignored_versions)
+  
   requirements_to_unlock =
     if !checker.requirements_unlocked_or_can_be?
       if checker.can_update?(requirements_to_unlock: :none) then :none
@@ -329,13 +223,12 @@ dependencies.select(&:top_level?).each do |dep|
   )
 
   updated_files = updater.updated_dependency_files
-  print "(to #{updater.dependencies[0].version})"
-  if package_is_vulnerable
-    print " [SECURITY-UPDATE]"
-  end
+
+  #additional log info
+  print "(to #{updater.dependencies[0].version})" + (package_is_vulnerable ? " [SECURITY-UPDATE]" : "")
 
   # skip PR submission if dry_run
-  if dry_run
+  if custom_util.dry_run?
     puts " not submitted as set by DRY_RUN environment variable"
     next
   end
@@ -345,9 +238,6 @@ dependencies.select(&:top_level?).each do |dep|
   ########################################
   assignee = (ENV["PULL_REQUESTS_ASSIGNEE"] || ENV["GITLAB_ASSIGNEE_ID"])&.to_i
   assignees = assignee ? [assignee] : assignee
-  # default labels if no security updates (use nil because if empty array all labels will be removed)
-  # or SECURITY-UPDATE label (must be created manually) plus the default labels
-  custom_labels = package_is_vulnerable ? ["SECURITY-UPDATE", "dependencies",language_label_for(package_manager)] : nil 
   pr_creator = Dependabot::PullRequestCreator.new(
     source: source,
     base_commit: commit,
@@ -357,8 +247,8 @@ dependencies.select(&:top_level?).each do |dep|
     assignees: assignees,
     author_details: { name: "Dependabot", email: "no-reply@github.com" },
     label_language: true,
-    custom_labels: custom_labels,
-    commit_message_options: { prefix: (package_is_vulnerable ? "[SECURITY-UPDATE]" : nil) }
+    custom_labels: custom_util.labels_for(package_manager, package_is_vulnerable),
+    commit_message_options: custom_util.message_options_for(package_is_vulnerable),
   )
   pull_request = pr_creator.create
   puts " submitted"
