@@ -10,10 +10,11 @@ require_relative "gitlab_api"
 class CustomUtil
   attr_reader :package_manager
 
-  def initialize(package_manager)
+  def initialize(package_manager, dependencies)
     @package_manager = package_manager
+    @all_vulnerabilities = get_all_vulnerabilities_for(dependencies)
   end
-
+  
   # Determines if dry run mode is active, overriding PR creation as
   # specified by the DRY_RUN environment variable (default is false)
   def dry_run?
@@ -65,17 +66,28 @@ class CustomUtil
   # Management of vulnerable dependencies          #
   ##################################################
 
+  def get_all_vulnerabilities_for(dependencies)
+    dep_names = []
+    dependencies.each do |dep|
+      dep_names.push(dep.name)
+    end
+    #puts "all dependencies: #{dep_names}"
+    vulns = VulnerabilityFetcher.new(dep_names, @package_manager).fetch_advisories
+    #puts "all vulnerabilities: #{vulns.to_json}"
+    return vulns
+  end
+
   # Gets the known vulnerabilities of a dependency in the required format to be passed to an update checker
   # Based on https://gist.github.com/BobbyMcWho/3ce09bde5abb674e61092efbe7390ffb with some adaptations
   # Tested with maven and nuget only
   def security_vulnerabilities_for(dep)
-    vulnerabilities = VulnerabilityFetcher.new([dep.name], @package_manager).fetch_advisories
-    if vulnerabilities[:package].length()>0
-      puts "  Vulnerability info: #{vulnerabilities.to_json}"
-    end
     security_vulnerabilities = []
-    if vulnerabilities.any?
-      security_vulnerabilities = vulnerabilities[:package].map do |vuln|
+    if @all_vulnerabilities.any?
+      vulnerabilities = @all_vulnerabilities[dep.name]
+      if vulnerabilities.length()>0
+        puts "  Vulnerability info: #{vulnerabilities.to_json}"
+      end
+      security_vulnerabilities = vulnerabilities.map do |vuln|
         Dependabot::SecurityAdvisory.new(
           dependency_name: dep.name,
           package_manager: @package_manager,
@@ -123,7 +135,7 @@ class CustomUtil
     label = get_labels(true)
     assignee = ENV["PULL_REQUESTS_ASSIGNEE"] || ENV["GITLAB_ASSIGNEE_ID"]
     token=ENV["GITLAB_ACCESS_TOKEN"]
-    print " - Create issue: " + title
+    print "  - Create issue: " + title
     if token.to_s.strip.empty?
       puts " - not submitted (no gitlab credentials available)"
     elsif dry_run?

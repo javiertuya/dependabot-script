@@ -167,7 +167,7 @@ parser = Dependabot::FileParsers.for_package_manager(package_manager).new(
 
 dependencies = parser.parse
 
-custom_util = CustomUtil.new(package_manager)
+custom_util = CustomUtil.new(package_manager, dependencies)
 
 dependencies.select(&:top_level?).each do |dep|
   #########################################
@@ -185,7 +185,7 @@ dependencies.select(&:top_level?).each do |dep|
   puts ignored_versions.length()==0 ? "" : " - With ignored versions: #{ignored_versions}"
   #ignore this dependency if was included in the IGNORE environment variable
   if custom_util.ignore_dependencies_for(dep)
-    print "  - Ignoring #{dep.name} (from #{dep.version})… excluded as set by IGNORE environment variable"
+    print "  - Ignoring #{dep.name} (from #{dep.version}) - excluded as set by IGNORE environment variable"
     next
   end
 
@@ -231,7 +231,7 @@ dependencies.select(&:top_level?).each do |dep|
 
   # skip PR submission if dry_run
   if custom_util.dry_run?
-    puts " not submitted as set by DRY_RUN environment variable"
+    puts " - not submitted as set by DRY_RUN environment variable"
     next
   end
 
@@ -253,7 +253,7 @@ dependencies.select(&:top_level?).each do |dep|
     commit_message_options: custom_util.get_message_options(package_is_vulnerable),
   )
   pull_request = pr_creator.create
-  puts " submitted"
+  puts " - submitted"
 
   next unless pull_request
 
