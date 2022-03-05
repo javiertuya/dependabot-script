@@ -167,7 +167,7 @@ parser = Dependabot::FileParsers.for_package_manager(package_manager).new(
 
 dependencies = parser.parse
 
-custom_util = CustomUtil.new
+custom_util = CustomUtil.new(package_manager)
 
 dependencies.select(&:top_level?).each do |dep|
   #########################################
@@ -190,9 +190,9 @@ dependencies.select(&:top_level?).each do |dep|
   end
 
   #check if package is vulnerable to set the appropriate labels in the PR or submit an issue if can not be updated
-  package_is_vulnerable = custom_util.package_is_vulnerable?(package_manager, dep, files, credentials, ignored_versions)
+  package_is_vulnerable = custom_util.package_is_vulnerable?(dep, files, credentials, ignored_versions)
   if checker.up_to_date? && package_is_vulnerable
-    custom_util.create_issue_for_vulnerable(source, dep, package_manager)
+    custom_util.create_issue_for_vulnerable(source, dep)
     next
   end
   
@@ -249,8 +249,8 @@ dependencies.select(&:top_level?).each do |dep|
     assignees: assignees,
     author_details: { name: "Dependabot", email: "no-reply@github.com" },
     label_language: true,
-    custom_labels: custom_util.labels_for(package_manager, package_is_vulnerable),
-    commit_message_options: custom_util.message_options_for(package_is_vulnerable),
+    custom_labels: custom_util.get_labels(package_is_vulnerable),
+    commit_message_options: custom_util.get_message_options(package_is_vulnerable),
   )
   pull_request = pr_creator.create
   puts " submitted"

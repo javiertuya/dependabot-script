@@ -8,7 +8,12 @@ require_relative "gitlab_api"
 # This class is instantiated in generic-update-script so as the script is kept as most as possible similar to the original
 
 class CustomUtil
-  
+  attr_reader :package_manager
+
+  def initialize(package_manager)
+    @package_manager = package_manager
+  end
+
   # Determines if dry run mode is active, overriding PR creation as
   # specified by the DRY_RUN environment variable (default is false)
   def dry_run?
@@ -63,8 +68,8 @@ class CustomUtil
   # Gets the known vulnerabilities of a dependency in the required format to be passed to an update checker
   # Based on https://gist.github.com/BobbyMcWho/3ce09bde5abb674e61092efbe7390ffb with some adaptations
   # Tested with maven and nuget only
-  def security_vulnerabilities_for(dep, package_manager)
-    vulnerabilities = VulnerabilityFetcher.new([dep.name], package_manager).fetch_advisories
+  def security_vulnerabilities_for(dep)
+    vulnerabilities = VulnerabilityFetcher.new([dep.name], @package_manager).fetch_advisories
     if vulnerabilities[:package].length()>0
       puts "  Vulnerability info: #{vulnerabilities.to_json}"
     end
@@ -73,7 +78,7 @@ class CustomUtil
       security_vulnerabilities = vulnerabilities[:package].map do |vuln|
         Dependabot::SecurityAdvisory.new(
           dependency_name: dep.name,
-          package_manager: package_manager,
+          package_manager: @package_manager,
           #When exist both lower and upper limit, it was unable to get the correct behaviour. Keeps only last (upper) if more than one
           #Examples: org.apache.logging.log4j:log4j-core and com.google.guava:guava report vulnerability when there is not
           vulnerable_versions: [vuln[:vulnerable_versions][vuln[:vulnerable_versions].length()-1]],
@@ -87,14 +92,14 @@ class CustomUtil
   # Determines if package to be updated has vulnerabilities                                                         
   # Uses a different checker than the used in the main script to set the security_advisories parameter.
   # This will let dependabot determine if there is any vulnerability
-  def package_is_vulnerable?(package_manager, dep, files, credentials, ignored_versions)
-    if package_manager!="docker" #docker does not report vulnerabilities
-      checker_vuln = Dependabot::UpdateCheckers.for_package_manager(package_manager).new(
+  def package_is_vulnerable?(dep, files, credentials, ignored_versions)
+    if @package_manager!="docker" #docker does not report vulnerabilities
+      checker_vuln = Dependabot::UpdateCheckers.for_package_manager(@package_manager).new(
         dependency: dep,
         dependency_files: files,
         credentials: credentials,
         ignored_versions: ignored_versions,
-        security_advisories: security_vulnerabilities_for(dep, package_manager),
+        security_advisories: security_vulnerabilities_for(dep),
         )
       #puts "  Checker.security_advisories #{checker_vuln.security_advisories}"
       #puts "  checker vulnerable? #{checker_vuln.vulnerable?}"
@@ -109,13 +114,13 @@ class CustomUtil
   end
 
   # Creates an issue for a dependency that is vulnerable but can not be updated (Gitlab only)
-  def create_issue_for_vulnerable(source, dependency, package_manager)
+  def create_issue_for_vulnerable(source, dependency)
     title = "[SECURITY-UPDATE]: Bump "+dependency.name+" from "+dependency.version+" - No remediation available"
     description = "Dependency has vulnerabilities but can not be updated due to any of the following reasons:"+
     "<br/>- Dependency is obsolete and no longer maintained: Replace it by other up to date dependency"+
     "<br/>- Non vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
     "<br/>- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"
-    label = labels_for(package_manager, true)
+    label = get_labels(true)
     assignee = ENV["PULL_REQUESTS_ASSIGNEE"] || ENV["GITLAB_ASSIGNEE_ID"]
     token=ENV["GITLAB_ACCESS_TOKEN"]
     print " - Create issue: " + title
@@ -133,23 +138,23 @@ class CustomUtil
   # Default labels to be included in the PR:
   # - if dependency is not vulnerable gets nil to let dependabot set the default labels
   # - if dependency is vulnerable returns the label SECURITY-UPDATE label (must be created manually) plus the default labels
-  def labels_for(package_manager, package_is_vulnerable)
-    return package_is_vulnerable ? ["SECURITY-UPDATE", "dependencies", language_label_for(package_manager)] : nil
+  def get_labels(package_is_vulnerable)
+    return package_is_vulnerable ? ["SECURITY-UPDATE", "dependencies", get_language_label] : nil
   end
 
   # Additional prefix to be set in the commit title (nil if not vulnerable)
-  def message_options_for(package_is_vulnerable)
+  def get_message_options(package_is_vulnerable)
     return { prefix: (package_is_vulnerable ? "[SECURITY-UPDATE]" : nil) }
   end
 
   #determines the label name for a given package manager to allow setting the same labels than dependabot defaults
-  def language_label_for(package_manager)
-    if package_manager == "maven"
+  def get_language_label
+    if @package_manager == "maven"
       return "java"
-    elsif package_manager == "nuget"
+    elsif @package_manager == "nuget"
       return ".NET"
     else
-      return package_manager
+      return @package_manager
     end
   end
     
