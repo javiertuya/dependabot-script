@@ -183,19 +183,21 @@ dependencies.select(&:top_level?).each do |dep|
 
   print "Check dependency: #{dep.name} (#{dep.version})"
   puts ignored_versions.length()==0 ? "" : " - With ignored versions: #{ignored_versions}"
-
-  next if checker.up_to_date?
-
   #ignore this dependency if was included in the IGNORE environment variable
   if custom_util.ignore_dependencies_for(dep)
-    print "  - Ignoring #{dep.name} (from #{dep.version})…"
-    puts " excluded as set by IGNORE environment variable"
+    print "  - Ignoring #{dep.name} (from #{dep.version})… excluded as set by IGNORE environment variable"
     next
   end
 
-  #check if package is vulnerable to set the appropriate labels in the PR
+  #check if package is vulnerable to set the appropriate labels in the PR or submit an issue if can not be updated
   package_is_vulnerable = custom_util.package_is_vulnerable?(package_manager, dep, files, credentials, ignored_versions)
+  if checker.up_to_date? && package_is_vulnerable
+    custom_util.create_issue_for_vulnerable(source, dep, package_manager)
+    next
+  end
   
+  next if checker.up_to_date?
+
   requirements_to_unlock =
     if !checker.requirements_unlocked_or_can_be?
       if checker.can_update?(requirements_to_unlock: :none) then :none

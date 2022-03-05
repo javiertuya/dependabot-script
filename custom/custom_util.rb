@@ -1,4 +1,5 @@
 require_relative "vulnerability_fetcher"
+require_relative "gitlab_api"
 
 # Utility class to support a number of customizations on dependabot-script
 # - dry run mode
@@ -105,6 +106,28 @@ class CustomUtil
       end 
     end
     return false
+  end
+
+  # Creates an issue for a dependency that is vulnerable but can not be updated (Gitlab only)
+  def create_issue_for_vulnerable(source, dependency, package_manager)
+    title = "[SECURITY-UPDATE]: Bump "+dependency.name+" from "+dependency.version+" - No remediation available"
+    description = "Dependency has vulnerabilities but can not be updated due to any of the following reasons:"+
+    "<br/>- Dependency is obsolete and no longer maintained: Replace it by other up to date dependency"+
+    "<br/>- Non vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
+    "<br/>- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"
+    label = labels_for(package_manager, true)
+    assignee = ENV["PULL_REQUESTS_ASSIGNEE"] || ENV["GITLAB_ASSIGNEE_ID"]
+    token=ENV["GITLAB_ACCESS_TOKEN"]
+    print " - Create issue: " + title
+    if token.to_s.strip.empty?
+      puts " - not submitted (no gitlab credentials available)"
+    elsif dry_run?
+      puts " - not submitted as set by DRY_RUN environment variable"
+    else
+      api = GitlabApi.new
+      ret = api.put_issue_if_not_exists(source.api_endpoint, token, source.repo, title, description, label, assignee)
+      puts " - " + ret
+    end
   end
 
   # Default labels to be included in the PR:
