@@ -4,22 +4,25 @@ To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and doc
 
 ## Added features
 
-- Environment variable: `IGNORE`, Default: N/A, Notes:
-  Semicolon separated list of dependencies to ignore.
-  <br/>Example: `IGNORE="junit:junit,org.apache.httpcomponents:httpclient"`
-- Environment variable: `IGNORE_VERSIONS`, Default: N/A, Notes:
-  Semicolon separated list of ignore specifications (one per dependency). 
-  <br/>Each ignore specification is in the form `dependency?version`, 
-  <br/>Multiple versions can be specified for a dependency using `+`
-  <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design?>=5; Microsoft.Data.SQLite?5.*.*+6.*.*"`
-  Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
-  <br/>A range can be used, eg. to ignore only versions between 14.6 and 14.7: `IGNORE_VERSIONS="gitlab/gitlab-ce?>=14.6,<14.8`
-- Dependency names specified in `IGNORE` or `IGNORE_VERSIONS` can specify an approximate match when ended by `*`.
-  Example: `org.junit*` matches all artifacts with a name that begins with `org.junit`
 - Environment variable: `DRY_RUN`, Default: N/A, Notes:
   If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
-- Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 
-  Note: The label must have been previously created in GitLab (at the project or group level)
+- Environment variable: `IGNORE`, Default: N/A, Notes:
+  Semicolon separated list of dependencies to ignore.
+  <br/>Example: `IGNORE="junit:junit; org.apache.httpcomponents:httpclient"`
+- Environment variable: `IGNORE_VERSIONS`, Default: N/A, Notes:
+  Semicolon separated list of ignore specifications (one per dependency). 
+  - Each ignore specification is in the form `dependency?version`, 
+  - Version can specify a range. Example `IGNORE_VERSIONS="gitlab/gitlab-ce? >=14.6,<14.8`
+  - Multiple versions can be specified for a dependency using `+`.
+    <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design? >=5; Microsoft.Data.SQLite? 5.*.*+6.*.*"`
+    Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
+  - Dependency names in `IGNORE` or `IGNORE_VERSIONS` can specify an approximate match by using wildcards at the end.
+    Example: `org.junit*` matches all artifacts with a name that begins with `org.junit`
+- Detection of vulnerable dependencies:
+  - Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 
+    Note: The label must have been previously created in GitLab (at the project or group level)
+  - Adds the prefix `[SECURITY-UPDATE]` to the commits
+  - Submits an issue with the same labels than PR if version is up to date but vulnerable (Gitlab only)
 
 ## Issues and solutions
 

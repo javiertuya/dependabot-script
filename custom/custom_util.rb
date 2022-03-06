@@ -66,14 +66,38 @@ class CustomUtil
   # Management of vulnerable dependencies          #
   ##################################################
 
+  #gets all vulnerabilities for the set of dependencies
   def get_all_vulnerabilities_for(dependencies)
     dep_names = []
     dependencies.each do |dep|
       dep_names.push(dep.name)
     end
-    #puts "all dependencies: #{dep_names}"
     vulns = VulnerabilityFetcher.new(dep_names, @package_manager).fetch_advisories
-    #puts "all vulnerabilities: #{vulns.to_json}"
+    vulns = patch_fetched_vulnerabilities(vulns)
+    return vulns
+  end
+  # Many problems found with determining vulnerable versions, eg: org.apache.logging.log4j:log4j-core and com.google.guava:guava
+  # Problems due to:
+  # - More than one vulnerability record -> patch: keeps only one (from graphql we get 2 records, here we keep the first)
+  # - Vulnerability is specified as a range -> patch: keeps only upper limit (this will try to update to latest version en all cases, except if there are ignored versions)
+  # - On org.apache.httpcomponents:httpclient there is a record for v5, but v5 does not exist (v5 is in a different package) -> patch: keeps the second instead of the first
+  def patch_fetched_vulnerabilities(vulns)
+    puts "All vulnerabilities:"
+    vulns.each do |dep, vuln|
+      if vuln.length()>0
+        puts "  - Before patch: #{dep} #{vuln.to_json}"
+        if dep=="org.apache.httpcomponents:httpclient" && vuln.length()>1 && vuln[0]["vulnerable_versions".to_sym][0].start_with?(">= 5.0.0")
+          #vuln=[{"patched_versions":["5.0.3"],"vulnerable_versions":[">= 5.0.0, < 5.0.3"]},{"patched_versions":["4.5.13"],"vulnerable_versions":["< 4.5.13"]}]
+          vuln.delete_at(0) #remove first as v5 does not exist
+        elsif vuln.length()>1
+          vuln.delete_at(1) #keeps only first (provided that graphql retrieved two records)
+        end
+        if vuln[0]["vulnerable_versions".to_sym][0].split(",").length>1 # keeps only upper bound if a range specified
+          vuln[0]["vulnerable_versions".to_sym][0] = vuln[0]["vulnerable_versions".to_sym][0].split(",")[1].strip
+        end
+        puts "  - After patch:  #{dep} #{vuln.to_json}"
+      end
+    end
     return vulns
   end
 
@@ -84,16 +108,11 @@ class CustomUtil
     security_vulnerabilities = []
     if @all_vulnerabilities.any?
       vulnerabilities = @all_vulnerabilities[dep.name]
-      if vulnerabilities.length()>0
-        puts "  Vulnerability info: #{vulnerabilities.to_json}"
-      end
       security_vulnerabilities = vulnerabilities.map do |vuln|
         Dependabot::SecurityAdvisory.new(
           dependency_name: dep.name,
           package_manager: @package_manager,
-          #When exist both lower and upper limit, it was unable to get the correct behaviour. Keeps only last (upper) if more than one
-          #Examples: org.apache.logging.log4j:log4j-core and com.google.guava:guava report vulnerability when there is not
-          vulnerable_versions: [vuln[:vulnerable_versions][vuln[:vulnerable_versions].length()-1]],
+          vulnerable_versions: vuln[:vulnerable_versions],
           safe_versions: vuln[:patched_versions]
         )
       end
@@ -128,10 +147,11 @@ class CustomUtil
   # Creates an issue for a dependency that is vulnerable but can not be updated (Gitlab only)
   def create_issue_for_vulnerable(source, dependency)
     title = "[SECURITY-UPDATE]: Bump "+dependency.name+" from "+dependency.version+" - No remediation available"
-    description = "Dependency has vulnerabilities but can not be updated due to any of the following reasons:"+
-    "<br/>- Dependency is obsolete and no longer maintained: Replace it by other up to date dependency"+
-    "<br/>- Non vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
-    "<br/>- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"
+    description = "Dependency is up to date, but has vulnerabilities. This may be due to any of the following reasons:"+
+    "<br/>- Dependency is obsolete and no longer maintained: Replace it with a different dependency"+
+    "<br/>- The no vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
+    "<br/>- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"+
+    "<br/>- False positive: Submit an issue to https://github.com/javiertuya/dependabot-script"
     label = get_labels(true)
     assignee = ENV["PULL_REQUESTS_ASSIGNEE"] || ENV["GITLAB_ASSIGNEE_ID"]
     token=ENV["GITLAB_ACCESS_TOKEN"]
