@@ -185,7 +185,7 @@ dependencies.select(&:top_level?).each do |dep|
   puts ignored_versions.length()==0 ? "" : " - With ignored versions: #{ignored_versions}"
   #ignore this dependency if was included in the IGNORE environment variable
   if custom_util.ignore_dependencies_for(dep)
-    print "  - Ignoring #{dep.name} (from #{dep.version}) - excluded as set by IGNORE environment variable"
+    puts "  - Ignoring #{dep.name} (from #{dep.version}) - excluded as set by IGNORE environment variable"
     next
   end
 

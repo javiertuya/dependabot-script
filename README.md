@@ -4,25 +4,24 @@ To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and doc
 
 ## Added features
 
-- Environment variable: `DRY_RUN`, Default: N/A, Notes:
+- Environment variable: `DRY_RUN`, Default: false.
   If set to true `DRY_RUN=true`, only displays dependencies that should be updated, but no PR are submitted.
-- Environment variable: `IGNORE`, Default: N/A, Notes:
-  Semicolon separated list of dependencies to ignore.
-  <br/>Example: `IGNORE="junit:junit; org.apache.httpcomponents:httpclient"`
-- Environment variable: `IGNORE_VERSIONS`, Default: N/A, Notes:
-  Semicolon separated list of ignore specifications (one per dependency). 
-  - Each ignore specification is in the form `dependency?version`, 
-  - Version can specify a range. Example `IGNORE_VERSIONS="gitlab/gitlab-ce? >=14.6,<14.8`
+- Environment variable: `IGNORE`, Default: N/A.
+  Semicolon separated list of dependencies and/or versions to ignore in the form `<dependency> [ ? <versions>]`
+  - If only `<dependency>` is specified the indicated dependency is completely ignored.
+    <br/>Example: `IGNORE="junit:junit; org.apache.httpcomponents:httpclient"`
+  - If `<versions>` is specified, only the specified range of versions is ignored.
+    <br/>Example: `IGNORE="gitlab/gitlab-ce? >=14.6,<14.8"`
   - Multiple versions can be specified for a dependency using `+`.
-    <br/>Example: `IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design? >=5; Microsoft.Data.SQLite? 5.*.*+6.*.*"`
+    <br/>Example: `IGNORE="Microsoft.Data.SQLite? 5.*.*+6.*.*"`.
     Note that version expressions like `5.*.*` are allowed on nuget, but not on maven
-  - Dependency names in `IGNORE` or `IGNORE_VERSIONS` can specify an approximate match by using wildcards at the end.
-    Example: `org.junit*` matches all artifacts with a name that begins with `org.junit`
+  - If the dependency name ends with a wilcard, the ignore is applied to all dependencies that match the pattern.
+    <br/>Example: `org.junit*` matches all artifacts with a name that begins with `org.junit`
 - Detection of vulnerable dependencies:
   - Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 
     Note: The label must have been previously created in GitLab (at the project or group level)
   - Adds the prefix `[SECURITY-UPDATE]` to the commits
-  - Submits an issue with the same labels than PR if version is up to date but vulnerable (Gitlab only)
+  - Submits an issue with the same labels than PR if version is up to date but vulnerable (GitLab only)
 
 ## Issues and solutions
 

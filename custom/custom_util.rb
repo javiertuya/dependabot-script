@@ -8,11 +8,19 @@ require_relative "gitlab_api"
 # This class is instantiated in generic-update-script so as the script is kept as most as possible similar to the original
 
 class CustomUtil
-  attr_reader :package_manager
 
   def initialize(package_manager, dependencies)
     @package_manager = package_manager
     @all_vulnerabilities = get_all_vulnerabilities_for(dependencies)
+    @all_ignore = []
+    unless ENV["IGNORE"].to_s.strip.empty?
+      @all_ignore = ENV["IGNORE"].strip.split(';')
+    end
+    #Error if using deprecated env var
+    unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
+      puts "ERROR: IGNORE_VERSIONS is no longer used, all version exclusions must be included in the IGNORE environment variable"
+      exit
+    end
   end
   
   # Determines if dry run mode is active, overriding PR creation as
@@ -28,26 +36,19 @@ class CustomUtil
   # Determines if a dependency must be ignored as set by the IGNORE environment variable
   # Example: IGNORE="junit:junit; org.apache.httpcomponents:httpclient"  
   def ignore_dependencies_for(dep)
-    return false if dep.name=="org.eclipse.m2e:lifecycle-mapping" #this is not a true dependency
-    unless ENV["IGNORE"].to_s.strip.empty?
-      ignore_dependencies = ENV["IGNORE"].strip.split(';')
-      ignore_dependencies.each do |dep_to_ignore|
-        return true if match_dependency_name?(dep_to_ignore.strip, dep.name)
-      end
+    @all_ignore.each do |ignore|
+      return true if !ignore.include?("?") && match_dependency_name?(ignore, dep.name)
     end
     return false   
   end
   
-  # Determines if the given versions of a dependency must be ignored as set by the IGNORE_VERSIONS environment variable
-  # Example: IGNORE_VERSIONS="Microsoft.EntityFrameworkCore.Design? >=5: Microsoft.Data.SQLite? 5.*.*+6.*.*" 
-  # Example: IGNORE_VERSIONS="gitlab/gitlab-ce? >=14.6,<14.8
+  # Determines if the given versions of a dependency must be ignored as set by the IGNORE environment variable
+  # Example: IGNORE="Microsoft.EntityFrameworkCore.Design? >=5: Microsoft.Data.SQLite? 5.*.*+6.*.*" 
+  # Example: IGNORE="gitlab/gitlab-ce? >=14.6,<14.8
   def ignored_versions_for(dep)
-    unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
-      ignore_versions = ENV["IGNORE_VERSIONS"].strip.split(';')
-      ignore_versions.each do |dep_and_version|
-        dep_and_version_array=dep_and_version.strip.split('?')
-        return dep_and_version_array[1].strip.split('+') if match_dependency_name?(dep_and_version_array[0].strip, dep.name)
-      end
+    @all_ignore.each do |ignore|
+      dep_and_version = ignore.strip.split('?')
+      return dep_and_version[1].strip.split('+') if dep_and_version.length()>1 && match_dependency_name?(dep_and_version[0].strip, dep.name)
     end
     return []
   end
@@ -55,6 +56,8 @@ class CustomUtil
   # Returns true if the specified dependency matches a dependency name
   # (specified dependency a wildcard at the end for approximate matches)
   def match_dependency_name?(dep_as_specified, dep_name)
+    dep_as_specified = dep_as_specified.strip
+    dep_name = dep_name.strip
     if dep_as_specified.end_with?("*") #approximate match
       return dep_name.start_with?(dep_as_specified[0..-2]) #remove last
     else
@@ -185,6 +188,8 @@ class CustomUtil
       return "java"
     elsif @package_manager == "nuget"
       return ".NET"
+    elsif @package_manager == "pip"
+      return "python"
     else
       return @package_manager
     end
