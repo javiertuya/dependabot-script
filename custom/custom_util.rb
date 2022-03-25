@@ -150,22 +150,20 @@ class CustomUtil
   # Creates an issue for a dependency that is vulnerable but can not be updated (Gitlab only)
   def create_issue_for_vulnerable(source, dependency)
     title = "[SECURITY-UPDATE]: Bump "+dependency.name+" from "+dependency.version+" - No remediation available"
-    description = "Dependency is up to date, but has vulnerabilities. This may be due to any of the following reasons:"+
-    "<br/>- Dependency is obsolete and no longer maintained: Replace it with a different dependency"+
-    "<br/>- The no vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
-    "<br/>- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"+
-    "<br/>- False positive: Submit an issue to https://github.com/javiertuya/dependabot-script"
+    description = "Dependency is up to date, but **has known vulnerabilities**. This may be due to any of the following reasons:"+
+    "\r\n- Dependency is obsolete and no longer maintained: Replace it with a different dependency"+
+    "\r\n- The no vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
+    "\r\n- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"+
+    "\r\n- False positive: Submit an issue to https://github.com/javiertuya/dependabot-script"
     label = get_labels(true)
     assignee = ENV["PULL_REQUESTS_ASSIGNEE"] || ENV["GITLAB_ASSIGNEE_ID"]
     token=ENV["GITLAB_ACCESS_TOKEN"]
     print "  - Create issue: " + title
     if token.to_s.strip.empty?
       puts " - not submitted (no gitlab credentials available)"
-    elsif dry_run?
-      puts " - not submitted as set by DRY_RUN environment variable"
     else
       api = GitlabApi.new
-      ret = api.put_issue_if_not_exists(source.api_endpoint, token, source.repo, title, description, label, assignee)
+      ret = api.put_issue_if_not_exists(dry_run?, source.api_endpoint, token, source.repo, title, description, label, assignee)
       puts " - " + ret
     end
   end
