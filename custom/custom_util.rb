@@ -149,10 +149,10 @@ class CustomUtil
 
   # Creates an issue for a dependency that is vulnerable but can not be updated (Gitlab only)
   def create_issue_for_vulnerable(source, dependency)
-    title = "[SECURITY-UPDATE]: Bump "+dependency.name+" from "+dependency.version+" - No remediation available"
-    description = "Dependency is up to date, but **has known vulnerabilities**. This may be due to any of the following reasons:"+
+    title = "[SECURITY-UPDATE]: Bump "+dependency.name+" from "+dependency.version+" - Take action ASAP"
+    description = "Dependency can not be updated to a more recent version, but **has known vulnerabilities**. This may be due to any of the following reasons:"+
     "\r\n- Dependency is obsolete and no longer maintained: Replace it with a different dependency"+
-    "\r\n- The no vulnerable versions are excluded by dependabot: Contact the gitlab manager to remove the exclusions"+
+    "\r\n- The no vulnerable versions are excluded by dependabot: Contact your repository manager to update the exclusions"+
     "\r\n- There is no update available yet: Hold this issue and take the appropriate countermeasures until an update is available"+
     "\r\n- False positive: Submit an issue to https://github.com/javiertuya/dependabot-script"
     label = get_labels(true)

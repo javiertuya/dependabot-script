@@ -21,7 +21,9 @@ To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and doc
   - Adds label `SECURITY-UPDATE` to the pull request if the dependency being updated has any vulnerability. 
     Note: The label must have been previously created in GitLab (at the project or group level)
   - Adds the prefix `[SECURITY-UPDATE]` to the commits
-  - Submits an issue with the same labels than PR if version is up to date but vulnerable (GitLab only)
+  - If dependency can not be updated:
+    - Submits an issue with the same labels than PR if version is up to date but vulnerable (GitLab only)
+    - Schedules a reminder to open security update issues if they have not been updated for two weeks
 
 ## Issues and solutions
 
