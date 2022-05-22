@@ -11,11 +11,11 @@ class CustomUtil
 
   def initialize(package_manager, dependencies)
     @package_manager = package_manager
-    @all_vulnerabilities = get_all_vulnerabilities_for(dependencies)
     @all_ignore = []
     unless ENV["IGNORE"].to_s.strip.empty?
       @all_ignore = ENV["IGNORE"].strip.split(';')
     end
+    @all_vulnerabilities = get_all_vulnerabilities_for(dependencies)
     #Error if using deprecated env var
     unless ENV["IGNORE_VERSIONS"].to_s.strip.empty?
       puts "ERROR: IGNORE_VERSIONS is no longer used, all version exclusions must be included in the IGNORE environment variable"
@@ -46,9 +46,12 @@ class CustomUtil
   # Example: IGNORE="Microsoft.EntityFrameworkCore.Design? >=5: Microsoft.Data.SQLite? 5.*.*+6.*.*" 
   # Example: IGNORE="gitlab/gitlab-ce? >=14.6,<14.8
   def ignored_versions_for(dep)
+    return ignored_versions_for_name(dep.name)
+  end
+  def ignored_versions_for_name(dep_name)
     @all_ignore.each do |ignore|
       dep_and_version = ignore.strip.split('?')
-      return dep_and_version[1].strip.split('+') if dep_and_version.length()>1 && match_dependency_name?(dep_and_version[0].strip, dep.name)
+      return dep_and_version[1].strip.split('+') if dep_and_version.length()>1 && match_dependency_name?(dep_and_version[0].strip, dep_name)
     end
     return []
   end
@@ -84,12 +87,15 @@ class CustomUtil
   # - More than one vulnerability record -> patch: keeps only one (from graphql we get 2 records, here we keep the first)
   # - Vulnerability is specified as a range -> patch: keeps only upper limit (this will try to update to latest version en all cases, except if there are ignored versions)
   # - On org.apache.httpcomponents:httpclient there is a record for v5, but v5 does not exist (v5 is in a different package) -> patch: keeps the second instead of the first
+  # - Ignoring major versions that have some vulnerability record, byt keep a lower version not vulnerable with previous vulnerabilities 
+  #   reports a false positive issue -> patched in issue #1
   def patch_fetched_vulnerabilities(vulns)
     puts "All vulnerabilities:"
-    vulns.each do |dep, vuln|
+    vulns.each do |dep_name, vuln|
       if vuln.length()>0
-        puts "  - Before patch: #{dep} #{vuln.to_json}"
-        if dep=="org.apache.httpcomponents:httpclient" && vuln.length()>1 && vuln[0]["vulnerable_versions".to_sym][0].start_with?(">= 5.0.0")
+        puts "  - Before patch: #{dep_name} #{vuln.to_json}"
+        patch_remove_ignored_vulnerabilities(dep_name, vuln)
+        if dep_name=="org.apache.httpcomponents:httpclient" && vuln.length()>1 && vuln[0]["vulnerable_versions".to_sym][0].start_with?(">= 5.0.0")
           #vuln=[{"patched_versions":["5.0.3"],"vulnerable_versions":[">= 5.0.0, < 5.0.3"]},{"patched_versions":["4.5.13"],"vulnerable_versions":["< 4.5.13"]}]
           vuln.delete_at(0) #remove first as v5 does not exist
         elsif vuln.length()>1
@@ -98,10 +104,25 @@ class CustomUtil
         if vuln[0]["vulnerable_versions".to_sym][0].split(",").length>1 # keeps only upper bound if a range specified
           vuln[0]["vulnerable_versions".to_sym][0] = vuln[0]["vulnerable_versions".to_sym][0].split(",")[1].strip
         end
-        puts "  - After patch:  #{dep} #{vuln.to_json}"
+        puts "    After patch:  #{dep_name} #{vuln.to_json}"
       end
     end
     return vulns
+  end
+  #Matches lower of ignored version >=X with lower bound of vulnerability >=Y
+  #if equal, removes the vunerability as it affects to an ignored version (X,Y are major version numbers)
+  #at the moment only consider first items, dirty, but works for me
+  def patch_remove_ignored_vulnerabilities(dep_name, vuln)
+    ignored = ignored_versions_for_name(dep_name)
+    return vuln if ignored.length()==0 or vuln.length()==0
+    ignoredArray = ignored[0].split(',')
+    vulnArray = vuln[0]["vulnerable_versions".to_sym][0].split(',')
+    ignoredBound = (ignoredArray[0].gsub(" ","") + ".0").split('.')[0]
+    vulnBound = (vulnArray[0].gsub(" ","") + ".0").split('.')[0]
+    if (ignoredBound == vulnBound && ignoredBound.start_with?(">="))
+      puts "      Remove ignored vulnerability: matched ignored version: #{ignored[0].to_json} with vulnerability: #{vuln[0].to_json}"
+      vuln.delete_at(0)
+    end
   end
 
   # Gets the known vulnerabilities of a dependency in the required format to be passed to an update checker
