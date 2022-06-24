@@ -168,6 +168,8 @@ parser = Dependabot::FileParsers.for_package_manager(package_manager).new(
 dependencies = parser.parse
 
 custom_util = CustomUtil.new(package_manager, dependencies)
+#Before checking dependencies, put reminders to old merge requests (including non-dependabot)
+custom_util.reminder_old_mrs(source)
 
 dependencies.select(&:top_level?).each do |dep|
   #########################################

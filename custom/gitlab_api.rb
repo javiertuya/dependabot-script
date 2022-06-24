@@ -36,4 +36,27 @@ class GitlabApi
     Gitlab.create_issue_note(project_id, issue_id, "This is a **reminder** about this issue because it has not been updated for **#{age} days**")
     return "reminder for #{age} days old issue"
   end
+
+  #Finds all open merge requests (max 100) and puts a reminder for older than 14 days
+  def remind_old_mrs(dry_run, endpoint, token, project)
+    max_age = 14
+    puts "Check merge request reminders for #{project}"
+    Gitlab.endpoint = endpoint
+    Gitlab.private_token = token
+    mrs = Gitlab.merge_requests(project, { per_page: 100, state: "opened" })
+    mrs.each do |mr|
+      #puts "MR: project_id #{mr.project_id} id #{mr.id} iid #{mr.iid} #{mr.state} #{mr.title} #{mr.updated_at}"
+      age = Date.today.mjd - Date.parse(mr.updated_at).mjd + 1 # one day tolerance
+      #puts "age: #{age}"
+      next if age<max_age
+      print "  - Reminder for #{age} days old MR #{mr.iid} #{mr.title}"
+      if dry_run
+        puts " - not submitted as set by DRY_RUN"
+      else
+        Gitlab.create_merge_request_comment(mr.project_id, mr.iid, "This is a **reminder** about this merge request because it has not been updated for **#{age} days**")
+        puts " - submitted"
+      end
+    end
+  end
+
 end
