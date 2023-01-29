@@ -8,6 +8,7 @@ require "dependabot/file_updaters"
 require "dependabot/pull_request_creator"
 require "dependabot/omnibus"
 require "gitlab"
+require "json"
 require_relative "custom/custom_util"
 
 credentials = [
@@ -45,6 +46,10 @@ branch = ENV["BRANCH"]
 # - docker
 # - terraform
 package_manager = ENV["PACKAGE_MANAGER"] || "bundler"
+
+# Expected to be a JSON object passed to the underlying components
+options = JSON.parse(ENV["OPTIONS"] || "{}", {:symbolize_names => true})
+puts "Running with options: #{options}"
 
 if ENV["GITHUB_ENTERPRISE_ACCESS_TOKEN"]
   credentials << {
@@ -104,7 +109,7 @@ elsif ENV["BITBUCKET_ACCESS_TOKEN"]
   credentials << {
     "type" => "git_source",
     "host" => bitbucket_hostname,
-    "username" => nil,
+    "username" => "x-token-auth",
     "token" => ENV["BITBUCKET_ACCESS_TOKEN"]
   }
 
@@ -114,7 +119,7 @@ elsif ENV["BITBUCKET_ACCESS_TOKEN"]
     api_endpoint: ENV["BITBUCKET_API_URL"] || "https://api.bitbucket.org/2.0/",
     repo: repo_name,
     directory: directory,
-    branch: nil,
+    branch: branch,
   )
 elsif ENV["BITBUCKET_APP_USERNAME"] && ENV["BITBUCKET_APP_PASSWORD"]
   bitbucket_hostname = ENV["BITBUCKET_HOSTNAME"] || "bitbucket.org"
@@ -150,6 +155,7 @@ puts "Fetching #{package_manager} dependency files for #{repo_name}"
 fetcher = Dependabot::FileFetchers.for_package_manager(package_manager).new(
   source: source,
   credentials: credentials,
+  options: options,
 )
 
 files = fetcher.files
@@ -163,6 +169,7 @@ parser = Dependabot::FileParsers.for_package_manager(package_manager).new(
   dependency_files: files,
   source: source,
   credentials: credentials,
+  options: options,
 )
 
 dependencies = parser.parse
@@ -180,6 +187,7 @@ dependencies.select(&:top_level?).each do |dep|
     dependency: dep,
     dependency_files: files,
     credentials: credentials,
+    options: options,
     ignored_versions: ignored_versions,
   )
 
@@ -224,6 +232,7 @@ dependencies.select(&:top_level?).each do |dep|
     dependencies: updated_deps,
     dependency_files: files,
     credentials: credentials,
+    options: options,
   )
 
   updated_files = updater.updated_dependency_files
