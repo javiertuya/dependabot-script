@@ -25,7 +25,8 @@ To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and doc
     - Submits an issue with the same labels than PR if version is up to date but vulnerable (GitLab only)
     - Schedules a reminder to open security update issues if they have not been updated for two weeks
 - Other reminders:
-  - Schedules a reminder to open merge request if they have not been updated for two weeks (including non-dependabot)
+  - Schedules a reminder to open merge requests if they have not been updated for two weeks (including non-dependabot)
+  - Schedules a reminder to open issues if they have not been updated for three weeks
 
 ### Issues and solutions
 

@@ -196,6 +196,13 @@ class CustomUtil
     api.remind_old_mrs(dry_run?, source.api_endpoint, token, source.repo)
   end
 
+  # Puts a reminder in old issues (including non-dependabot)
+  def reminder_old_issues(source)
+    token=ENV["GITLAB_ACCESS_TOKEN"]
+    api = GitlabApi.new
+    api.remind_old_issues(dry_run?, source.api_endpoint, token, source.repo)
+  end
+
   # Default labels to be included in the PR:
   # - if dependency is not vulnerable gets nil to let dependabot set the default labels
   # - if dependency is vulnerable returns the label SECURITY-UPDATE label (must be created manually) plus the default labels
