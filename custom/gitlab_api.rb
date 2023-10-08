@@ -40,7 +40,7 @@ class GitlabApi
 
   #Finds all open issues(max 100) and puts a reminder for older than X days
   def remind_old_issues(dry_run, endpoint, token, project)
-    max_age = 21
+    max_age = 14
     exclude_labels = ["EPIC", "postponed"]
     puts "Check issue reminders for #{project}"
     Gitlab.endpoint = endpoint
@@ -54,12 +54,14 @@ class GitlabApi
       next if age<max_age
       next if match_any_array_item(issue.labels, exclude_labels)
       print "  - Reminder for #{age} days old issue #{issue.iid} (project: #{issue.project_id}) #{issue.title}"
+      issue_message = "@#{issue.assignee.username} This is a **reminder** about this issue because it has not been updated for **#{age} days**"
       if dry_run
         puts " - not submitted as set by DRY_RUN"
       else
-        Gitlab.create_issue_note(issue.project_id, issue.iid, "This is a **reminder** about this issue because it has not been updated for **#{age} days**")
+        Gitlab.create_issue_note(issue.project_id, issue.iid, issue_message)
         puts " - submitted"
       end
+      #puts issue_message
     end
   end
   #Returns true if any item in array1 is included in array2
