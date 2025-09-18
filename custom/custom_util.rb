@@ -29,6 +29,11 @@ class CustomUtil
     return !ENV["DRY_RUN"].to_s.strip.empty? && ENV["DRY_RUN"]=="true"
   end
 
+  # Determines if reminders for GitLab old issues and PRs are activated (default is false).
+  def reminders?
+    return !ENV["REMINDERS"].to_s.strip.empty? && ENV["REMINDERS"]=="true"
+  end
+
   ##################################################
   # Management of ignore dependencies and versions #
   ##################################################

@@ -176,8 +176,10 @@ dependencies = parser.parse
 
 custom_util = CustomUtil.new(package_manager, dependencies)
 #Before checking dependencies, put reminders to old merge requests and issues (including non-dependabot)
-custom_util.reminder_old_mrs(source)
-custom_util.reminder_old_issues(source)
+if custom_util.reminders?
+  custom_util.reminder_old_mrs(source)
+  custom_util.reminder_old_issues(source)
+end
 
 dependencies.select(&:top_level?).each do |dep|
   #########################################
