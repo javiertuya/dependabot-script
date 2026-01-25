@@ -1,3 +1,7 @@
+> **Dependabot Script is deprecated and replaced by Dependabot CLI. Use the new customization for GitLab at https://github.com/javiertuya/dependabot-cli-gitlab**
+
+----
+
 ## Notes & customizations on this fork
 
 To use in a on-premise Gitlab+Jenkins platform. Tested on the java, .NET and docker ecosystems
